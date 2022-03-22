@@ -96,6 +96,9 @@ def parse_arguments():
     arg_parser.add_argument('--exit-on-error', '-e', help='exit program if download error encountered',
                             action='store_true', required=False)
 
+    arg_parser.add_argument('--err-log', '-l', help='output error log to file. If not specified, stderr used instead',
+                            action='store', default=None, required=False)
+
     return arg_parser.parse_args()
 
 
@@ -132,6 +135,11 @@ def main():
         print(f'{e}', file=sys.stderr)
         return -1
 
+    if args.err_log is None:
+        err_log_file = sys.stderr
+    else:
+        err_log_file = open(args.err_log, 'w')
+
     crates_progress_bar = tqdm(
         desc=f'Crates to download',
         iterable=cargo_lock['package'],
@@ -143,10 +151,15 @@ def main():
         try:
             download_crate(args.repo_link, args.output_dir, package_name, package_version, args.overwrite)
         except CrateDownloadError as e:
-            print(f'Error downloading crate "{package_name}", version {package_version} with http code {e.code}',
-                  file=sys.stderr)
+            print(
+                f'Error downloading crate "{package_name}", version {package_version} with http code {e.code}. '
+                f'Link: {e.link}',
+                file=err_log_file)
             if args.exit_on_error:
                 return -1
+
+    if err_log_file != sys.stderr:
+        err_log_file.close()
 
     return 0
 
